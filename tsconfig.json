@@ -16,7 +16,7 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
-      "@shared/*": ["../../shared/*"]
+      "@shared/*": ["./shared/*"]
     }
   },
   "include": [
@@ -24,8 +24,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "../../shared/**/*.ts",
-    "../../shared/**/*.tsx",
+    "./shared/**/*.ts",
+    "./shared/**/*.tsx",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
