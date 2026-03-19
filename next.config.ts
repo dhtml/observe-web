@@ -4,6 +4,11 @@ import path from "path";
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@africoders/shared"],
+  turbopack: {
+    resolveAlias: {
+      "@shared": path.resolve(__dirname, "../../shared"),
+    },
+  },
   webpack: (config) => {
     config.resolve.modules = [
       path.resolve(__dirname, "node_modules"),
