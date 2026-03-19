@@ -1,9 +1,5 @@
-import { getUrl } from "@shared/utils/domains";
-
 const apiBase = () =>
-  typeof window !== "undefined"
-    ? `${getUrl("api")}/api/v1/observe`
-    : `${process.env.NEXT_PUBLIC_API_URL ?? "https://api.africoders.com"}/api/v1/observe`;
+  `${process.env.NEXT_PUBLIC_API_URL ?? "https://api.africoders.com"}/api/v1/observe`;
 
 async function request<T>(
   path: string,
