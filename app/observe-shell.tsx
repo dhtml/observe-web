@@ -13,6 +13,8 @@ import {
   Settings,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useAuth } from "@shared/hooks/useAuth";
+import { getUrl } from "@shared/utils/domains";
 
 interface NavItem {
   href: string;
@@ -28,6 +30,12 @@ interface Props {
 
 export function ObserveShell({ projectId, children }: Props) {
   const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
+
+  // Guest mode: no sidebar, just render content directly
+  if (!isAuthenticated) {
+    return <div className="bg-gray-950 min-h-screen">{children}</div>;
+  }
 
   const projectNav: NavItem[] = projectId
     ? [
@@ -100,7 +108,7 @@ export function ObserveShell({ projectId, children }: Props) {
         {/* Footer */}
         <div className="px-4 py-3 border-t border-gray-800">
           <Link
-            href="https://console.africoders.com"
+            href={getUrl("console")}
             className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
           >
             <LayoutDashboard className="w-3 h-3" />

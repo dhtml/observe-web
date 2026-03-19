@@ -2,23 +2,49 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Activity, ExternalLink } from "lucide-react";
+import { Plus, Activity, ExternalLink, LogIn } from "lucide-react";
 import { ObserveShell } from "@/app/observe-shell";
 import { listProjects, getProjectStats, type Project } from "@/lib/api";
 import { useCan } from "@/lib/useObserveRole";
+import { useAuth } from "@shared/hooks/useAuth";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canManage = useCan("manageProjects");
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     listProjects()
       .then((r) => setProjects(r.projects))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isAuthenticated, authLoading]);
+
+  // Guest landing
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <ObserveShell>
+        <div className="flex flex-col items-center justify-center py-32 px-8 text-center">
+          <Activity className="w-16 h-16 text-cyan-500 mb-6" />
+          <h1 className="text-3xl font-bold text-white mb-3">Africoders Observe</h1>
+          <p className="text-gray-400 max-w-md mb-8">
+            Self-hosted observability for the Africoders ecosystem — errors, logs, metrics, and alerts in one place.
+          </p>
+          <p className="text-gray-500 text-sm flex items-center gap-2">
+            <LogIn className="w-4 h-4" />
+            Sign in to view your projects
+          </p>
+        </div>
+      </ObserveShell>
+    );
+  }
 
   return (
     <ObserveShell>
