@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { ObserveShell } from "@/app/observe-shell";
 import { createProject } from "@/lib/api";
+import { useCan } from "@/lib/useObserveRole";
 
 const PLATFORMS = [
   { value: "javascript", label: "JavaScript / Browser" },
@@ -20,10 +21,17 @@ const PLATFORMS = [
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const canManage = useCan("manageProjects");
   const [name, setName] = useState("");
   const [platform, setPlatform] = useState("javascript");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canManage) router.replace("/projects");
+  }, [canManage, router]);
+
+  if (!canManage) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

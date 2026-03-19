@@ -5,6 +5,8 @@ import { use } from "react";
 import { Copy, Check, Trash2, Activity } from "lucide-react";
 import { getProject, updateProject, deleteProject, type Project } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { useObserveRole, useCan } from "@/lib/useObserveRole";
+import { Lock } from "lucide-react";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -13,6 +15,8 @@ interface Props {
 export default function SettingsPage({ params }: Props) {
   const { id: projectId } = use(params);
   const router = useRouter();
+  const role = useObserveRole();
+  const canManage = useCan("manageProjects");
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -78,6 +82,16 @@ export default function SettingsPage({ params }: Props) {
         <p className="text-sm text-gray-500">Manage your project configuration</p>
       </div>
 
+      {/* Role banner */}
+      {!canManage && (
+        <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-400">
+          <Lock className="w-4 h-4 flex-shrink-0" />
+          {role === "moderator"
+            ? "You have moderator access — project settings are read-only."
+            : "You have read-only access. Log in with an admin account to manage this project."}
+        </div>
+      )}
+
       {/* DSN */}
       <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
         <h3 className="text-sm font-semibold text-white mb-1">Project DSN</h3>
@@ -122,54 +136,58 @@ observe.installGlobalHandlers();`}
         </div>
       </section>
 
-      {/* Edit project */}
-      <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-        <h3 className="text-sm font-semibold text-white mb-4">General</h3>
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Project Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full bg-gray-950 border border-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Platform</label>
-            <input
-              type="text"
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
-          >
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
-        </form>
-      </section>
+      {/* Edit project — admin only */}
+      {canManage && (
+        <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">General</h3>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5">Project Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full bg-gray-950 border border-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5">Platform</label>
+              <input
+                type="text"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full bg-gray-950 border border-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+            >
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </form>
+        </section>
+      )}
 
-      {/* Danger zone */}
-      <section className="bg-gray-900 border border-red-900 rounded-lg p-5">
-        <h3 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h3>
-        <p className="text-xs text-gray-500 mb-4">
-          Deleting this project will permanently remove all errors, logs, metrics, and alerts.
-        </p>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="flex items-center gap-2 bg-red-950 hover:bg-red-900 text-red-400 hover:text-red-300 border border-red-800 px-4 py-2 rounded text-sm font-medium transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          {deleting ? "Deleting…" : "Delete Project"}
-        </button>
-      </section>
+      {/* Danger zone — admin only */}
+      {canManage && (
+        <section className="bg-gray-900 border border-red-900 rounded-lg p-5">
+          <h3 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            Deleting this project will permanently remove all errors, logs, metrics, and alerts.
+          </p>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center gap-2 bg-red-950 hover:bg-red-900 text-red-400 hover:text-red-300 border border-red-800 px-4 py-2 rounded text-sm font-medium transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            {deleting ? "Deleting…" : "Delete Project"}
+          </button>
+        </section>
+      )}
     </div>
   );
 }

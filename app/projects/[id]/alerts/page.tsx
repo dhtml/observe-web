@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { use } from "react";
 import { Activity, Bell, Plus, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { listAlerts, createAlert, updateAlert, deleteAlert, type Alert } from "@/lib/api";
+import { useCan } from "@/lib/useObserveRole";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -14,6 +15,7 @@ export default function AlertsPage({ params }: Props) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const canManageAlerts = useCan("manageAlerts");
 
   function load() {
     listAlerts(projectId)
@@ -44,13 +46,15 @@ export default function AlertsPage({ params }: Props) {
           <h2 className="text-xl font-bold text-white">Alerts</h2>
           <p className="text-sm text-gray-500 mt-0.5">Threshold-based notifications</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Alert
-        </button>
+        {canManageAlerts && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Alert
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -84,8 +88,9 @@ export default function AlertsPage({ params }: Props) {
             className="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4 flex items-center gap-4"
           >
             <button
-              onClick={() => handleToggle(alert)}
-              className="text-gray-400 hover:text-white flex-shrink-0"
+              onClick={() => canManageAlerts && handleToggle(alert)}
+              disabled={!canManageAlerts}
+              className={`text-gray-400 flex-shrink-0 ${canManageAlerts ? "hover:text-white cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
               title={alert.enabled ? "Disable alert" : "Enable alert"}
             >
               {alert.enabled ? (
@@ -116,13 +121,15 @@ export default function AlertsPage({ params }: Props) {
               </span>
             </div>
 
-            <button
-              onClick={() => handleDelete(alert.id)}
-              className="text-gray-600 hover:text-red-400 flex-shrink-0 transition-colors"
-              title="Delete alert"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {canManageAlerts && (
+              <button
+                onClick={() => handleDelete(alert.id)}
+                className="text-gray-600 hover:text-red-400 flex-shrink-0 transition-colors"
+                title="Delete alert"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ))}
       </div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { use } from "react";
 import { AlertTriangle, Activity } from "lucide-react";
 import { listGroups, updateGroup, type ErrorGroup } from "@/lib/api";
+import { useCan } from "@/lib/useObserveRole";
 
 const STATUS_TABS = [
   { value: "", label: "All" },
@@ -32,6 +33,7 @@ export default function IssuesPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("unresolved");
   const [level, setLevel] = useState("");
+  const canTriage = useCan("triage");
 
   function load() {
     setLoading(true);
@@ -147,7 +149,7 @@ export default function IssuesPage({ params }: Props) {
               </div>
 
               <div className="flex-shrink-0 flex items-center gap-1">
-                {g.status !== "resolved" && (
+                {canTriage && g.status !== "resolved" && (
                   <button
                     onClick={() => resolve(g.id)}
                     className="text-xs px-2 py-1 bg-gray-800 hover:bg-green-900 text-gray-400 hover:text-green-300 rounded transition-colors"
@@ -155,7 +157,7 @@ export default function IssuesPage({ params }: Props) {
                     Resolve
                   </button>
                 )}
-                {g.status !== "ignored" && (
+                {canTriage && g.status !== "ignored" && (
                   <button
                     onClick={() => ignore(g.id)}
                     className="text-xs px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-300 rounded transition-colors"
