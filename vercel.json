@@ -1,0 +1,1 @@
+{"buildCommand":"npm run build","outputDirectory":".next","installCommand":"git submodule update --init --recursive && npm install"}
