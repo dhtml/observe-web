@@ -7,9 +7,12 @@ export type ObserveRole = "guest" | "moderator" | "admin";
 /**
  * Derives a simplified observe-specific role from the platform user role.
  *
- * guest     — unauthenticated or plain `user` role: read-only
+ * guest     — unauthenticated: read-only landing page
  * moderator — `moderator` or `instructor` role: can triage issues, manage alerts
- * admin     — `admin` or `superadmin`: full access including project CRUD
+ * admin     — any other authenticated user, `admin`, or `superadmin`: full access
+ *
+ * For a self-hosted observability tool every authenticated team member
+ * needs to create projects, view DSNs, and triage errors.
  */
 export function useObserveRole(): ObserveRole {
   const { user, isAuthenticated } = useAuth();
@@ -19,21 +22,18 @@ export function useObserveRole(): ObserveRole {
   const r = user.role ?? "user";
   if (r === "admin" || r === "superadmin") return "admin";
   if (r === "moderator" || r === "instructor") return "moderator";
-  return "guest";
+  return "admin";
 }
 
-/** True when the user has at least moderator-level access */
+/** True when the user has at least the required role level */
 export function useCan(action: "triage" | "manageAlerts" | "manageProjects"): boolean {
   const role = useObserveRole();
   switch (action) {
     case "triage":
-      // resolve / ignore issues
       return role === "moderator" || role === "admin";
     case "manageAlerts":
-      // create / edit / delete alerts
       return role === "moderator" || role === "admin";
     case "manageProjects":
-      // create / delete projects, view DSN, project settings
       return role === "admin";
   }
 }

@@ -232,3 +232,89 @@ export const updateAlert = (
 
 export const deleteAlert = (projectId: string, alertId: string) =>
   request<void>(`/projects/${projectId}/alerts/${alertId}`, { method: "DELETE" });
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+
+export interface Transaction {
+  id: string;
+  project_id: string;
+  trace_id: string;
+  name: string;
+  op: string;
+  description?: string;
+  status: string;
+  platform?: string;
+  environment: string;
+  release?: string;
+  user_id?: string;
+  duration_ms: number;
+  started_at: string;
+  finished_at?: string;
+  tags?: Record<string, unknown>;
+  payload?: unknown;
+  received_at: string;
+}
+
+export interface Span {
+  id: string;
+  transaction_id?: string;
+  project_id: string;
+  trace_id: string;
+  span_id: string;
+  parent_span_id?: string;
+  op: string;
+  description?: string;
+  status: string;
+  duration_ms: number;
+  started_at: string;
+  finished_at?: string;
+  tags?: Record<string, unknown>;
+  data?: Record<string, unknown>;
+}
+
+export interface TransactionStats {
+  total: number;
+  avg_duration_ms: number;
+  p95_duration_ms: number;
+  error_rate: number;
+  last_24h: number;
+}
+
+export interface TransactionsQuery {
+  op?: string;
+  environment?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const listTransactions = (projectId: string, q: TransactionsQuery = {}) => {
+  const params = new URLSearchParams();
+  if (q.op) params.set("op", q.op);
+  if (q.environment) params.set("environment", q.environment);
+  if (q.limit) params.set("limit", String(q.limit));
+  if (q.offset) params.set("offset", String(q.offset));
+  return request<{ transactions: Transaction[]; total: number; limit: number; offset: number }>(
+    `/projects/${projectId}/transactions?${params}`
+  );
+};
+
+export const getTransaction = (projectId: string, txnId: string) =>
+  request<{ transaction: Transaction; spans: Span[] }>(`/projects/${projectId}/transactions/${txnId}`);
+
+export const getTransactionStats = (projectId: string) =>
+  request<TransactionStats>(`/projects/${projectId}/transactions/stats`);
+
+// ── Releases ──────────────────────────────────────────────────────────────────
+
+export interface Release {
+  id: string;
+  project_id: string;
+  version: string;
+  environment: string;
+  deploy_url?: string;
+  first_seen: string;
+  last_seen: string;
+}
+
+export const listReleases = (projectId: string) =>
+  request<{ releases: Release[] }>(`/projects/${projectId}/releases`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Activity, Cpu, CheckCircle, EyeOff } from "lucide-react";
@@ -8,6 +8,54 @@ import { getGroup, updateGroup, type ErrorGroup, type ErrorEvent } from "@/lib/a
 
 interface Props {
   params: Promise<{ id: string; groupId: string }>;
+}
+
+function EventCard({ event }: { event: ErrorEvent }) {
+  const raw = event.payload;
+  const payload: Record<string, unknown> | null =
+    raw != null && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-lg">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 border-b border-gray-800 text-xs">
+        <KV k="Environment" v={event.environment} />
+        <KV k="Platform" v={event.platform} />
+        <KV k="Level" v={event.level} />
+        {event.release ? <KV k="Release" v={event.release} /> : null}
+        {event.user_id ? <KV k="User ID" v={event.user_id} /> : null}
+      </div>
+      {payload ? <StackTrace payload={payload} /> : null}
+      {payload && Array.isArray(payload.breadcrumbs)
+        ? <Breadcrumbs crumbs={payload.breadcrumbs as Crumb[]} />
+        : null}
+      {payload?.tags && Object.keys(payload.tags as Record<string, string>).length > 0 ? (
+        <div className="px-4 py-3 border-t border-gray-800">
+          <p className="text-xs text-gray-500 mb-2 font-medium">Tags</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(payload.tags as Record<string, string>).map(([k, v]) => (
+              <span key={k} className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded font-mono">
+                {k}: {v}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {payload?.contexts && Object.keys(payload.contexts as Record<string, unknown>).length > 0 ? (
+        <div className="px-4 py-3 border-t border-gray-800">
+          <p className="text-xs text-gray-500 mb-2 font-medium">Contexts</p>
+          {Object.entries(payload.contexts as Record<string, Record<string, unknown>>).map(([name, data]) => (
+            <div key={name} className="mb-2">
+              <p className="text-xs text-gray-400 font-medium mb-1">{name}</p>
+              <pre className="text-xs text-gray-300 bg-gray-950 rounded p-2 overflow-x-auto">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {payload ? <RawPayload payload={payload} /> : null}
+    </div>
+  );
 }
 
 export default function IssueDetailPage({ params }: Props) {
@@ -47,13 +95,11 @@ export default function IssueDetailPage({ params }: Props) {
   }
 
   if (!group) {
-    return <p className="px-8 py-8 text-gray-400">Issue not found</p>;
+    return <p className="px-4 sm:px-8 py-6 sm:py-8 text-gray-400">Issue not found</p>;
   }
 
-  const payload = selectedEvent?.payload as Record<string, unknown> | undefined;
-
   return (
-    <div className="px-8 py-8 max-w-5xl">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-5xl">
       <Link
         href={`/projects/${projectId}/issues`}
         className="flex items-center gap-1 text-sm text-gray-400 hover:text-white mb-6"
@@ -137,31 +183,12 @@ export default function IssueDetailPage({ params }: Props) {
 
         {/* Event detail */}
         <div className="col-span-2">
-          {selectedEvent && (
+          {selectedEvent ? (
             <>
               <h3 className="text-sm font-medium text-gray-400 mb-3">Event Detail</h3>
-              <div className="bg-gray-900 border border-gray-800 rounded-lg">
-                {/* Meta */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 border-b border-gray-800 text-xs">
-                  <KV k="Environment" v={selectedEvent.environment} />
-                  <KV k="Platform" v={selectedEvent.platform} />
-                  <KV k="Level" v={selectedEvent.level} />
-                  {selectedEvent.release && <KV k="Release" v={selectedEvent.release} />}
-                  {selectedEvent.user_id && <KV k="User ID" v={selectedEvent.user_id} />}
-                </div>
-
-                {/* Stack trace */}
-                {payload && (
-                  <div className="px-4 py-3">
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Raw Payload</p>
-                    <pre className="text-xs text-green-300 bg-gray-950 rounded p-3 overflow-x-auto max-h-64 overflow-y-auto">
-                      {JSON.stringify(payload, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
+              <EventCard event={selectedEvent} />
             </>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -210,4 +237,194 @@ function fmt(iso: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/* ---- Stack Trace Rendering ---- */
+
+interface StackFrame {
+  filename?: string;
+  function?: string;
+  lineno?: number;
+  colno?: number;
+  in_app?: boolean;
+  context_line?: string;
+  pre_context?: string[];
+  post_context?: string[];
+}
+
+function StackTrace({ payload }: { payload: Record<string, unknown> }): ReactElement | null {
+  // Try to find stack frames in various formats
+  const frames = extractFrames(payload);
+
+  if (frames.length === 0) {
+    // Fall back to stack string
+    const stackStr = (payload.stack as string) || (payload.stacktrace as string);
+    if (stackStr) {
+      return (
+        <div className="px-4 py-3 border-t border-gray-800">
+          <p className="text-xs text-gray-500 mb-2 font-medium">Stack Trace</p>
+          <pre className="text-xs text-red-300 bg-gray-950 rounded p-3 overflow-x-auto max-h-80 overflow-y-auto font-mono whitespace-pre-wrap">
+            {stackStr}
+          </pre>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  return (
+    <div className="px-4 py-3 border-t border-gray-800">
+      <p className="text-xs text-gray-500 mb-2 font-medium">Stack Trace</p>
+      <div className="space-y-0.5">
+        {frames.map((frame, i) => (
+          <div
+            key={i}
+            className={`text-xs font-mono rounded px-3 py-2 ${
+              frame.in_app !== false
+                ? "bg-gray-950 text-gray-200 border-l-2 border-red-500"
+                : "bg-gray-900/50 text-gray-500"
+            }`}
+          >
+            <div className="flex items-baseline gap-2 flex-wrap">
+              {frame.function && (
+                <span className={frame.in_app !== false ? "text-yellow-300" : "text-gray-500"}>
+                  {frame.function}
+                </span>
+              )}
+              <span className="text-gray-600">
+                {frame.filename}
+                {frame.lineno != null && `:${frame.lineno}`}
+                {frame.colno != null && `:${frame.colno}`}
+              </span>
+            </div>
+            {frame.context_line && (
+              <pre className="mt-1 text-green-400 bg-gray-800 rounded px-2 py-1 overflow-x-auto">
+                {frame.context_line}
+              </pre>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function extractFrames(payload: Record<string, unknown>): StackFrame[] {
+  // Sentry-style: exception.values[0].stacktrace.frames
+  const exception = payload.exception as { values?: { stacktrace?: { frames?: StackFrame[] } }[] } | undefined;
+  if (exception?.values?.[0]?.stacktrace?.frames) {
+    return [...exception.values[0].stacktrace.frames].reverse();
+  }
+
+  // Direct frames array
+  const frames = (payload.frames as StackFrame[]) || (payload.stacktrace as { frames?: StackFrame[] })?.frames;
+  if (Array.isArray(frames)) return [...frames].reverse();
+
+  // Parse from stack string
+  const stackStr = (payload.stack as string) || (payload.stacktrace as string);
+  if (typeof stackStr === "string") {
+    return parseStackString(stackStr);
+  }
+
+  return [];
+}
+
+function parseStackString(stack: string): StackFrame[] {
+  const lines = stack.split("\n").filter((l) => l.trim().startsWith("at "));
+  return lines.map((line) => {
+    const match = line.match(/at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/);
+    if (match) {
+      return {
+        function: match[1],
+        filename: match[2],
+        lineno: parseInt(match[3]),
+        colno: parseInt(match[4]),
+        in_app: !match[2].includes("node_modules"),
+      };
+    }
+    const match2 = line.match(/at\s+(.+?):(\d+):(\d+)/);
+    if (match2) {
+      return {
+        filename: match2[1],
+        lineno: parseInt(match2[2]),
+        colno: parseInt(match2[3]),
+        in_app: !match2[1].includes("node_modules"),
+      };
+    }
+    return { function: line.trim().replace(/^at\s+/, "") };
+  });
+}
+
+/* ---- Breadcrumbs Timeline ---- */
+
+interface Crumb {
+  type?: string;
+  category?: string;
+  message?: string;
+  level?: string;
+  timestamp?: string | number;
+  data?: Record<string, unknown>;
+}
+
+const CRUMB_COLORS: Record<string, string> = {
+  error: "text-red-400 border-red-800",
+  warning: "text-yellow-400 border-yellow-800",
+  info: "text-blue-400 border-blue-800",
+  debug: "text-gray-500 border-gray-700",
+  navigation: "text-purple-400 border-purple-800",
+  http: "text-cyan-400 border-cyan-800",
+  ui: "text-green-400 border-green-800",
+  default: "text-gray-400 border-gray-700",
+};
+
+function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }): ReactElement | null {
+  if (!crumbs || crumbs.length === 0) return null;
+
+  return (
+    <div className="px-4 py-3 border-t border-gray-800">
+      <p className="text-xs text-gray-500 mb-2 font-medium">Breadcrumbs ({crumbs.length})</p>
+      <div className="space-y-1 max-h-60 overflow-y-auto">
+        {crumbs.map((crumb, i) => {
+          const color = CRUMB_COLORS[crumb.type || crumb.category || crumb.level || "default"] ?? CRUMB_COLORS.default;
+          return (
+            <div key={i} className={`text-xs flex items-start gap-2 border-l-2 pl-2 py-1 ${color}`}>
+              <span className="text-gray-600 flex-shrink-0 w-16 text-right font-mono">
+                {crumb.timestamp ? formatCrumbTime(crumb.timestamp) : "—"}
+              </span>
+              <span className="bg-gray-800 px-1 py-0.5 rounded text-[10px] font-mono flex-shrink-0">
+                {crumb.category || crumb.type || "—"}
+              </span>
+              <span className="text-gray-300 truncate">{crumb.message || "—"}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function formatCrumbTime(ts: string | number): string {
+  const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+/* ---- Raw Payload (collapsible) ---- */
+
+function RawPayload({ payload }: { payload: Record<string, unknown> }): ReactElement {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="px-4 py-3 border-t border-gray-800">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-xs text-gray-500 hover:text-gray-300 font-medium transition-colors"
+      >
+        {open ? "▾" : "▸"} Raw Payload
+      </button>
+      {open && (
+        <pre className="text-xs text-green-300 bg-gray-950 rounded p-3 mt-2 overflow-x-auto max-h-64 overflow-y-auto">
+          {JSON.stringify(payload, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
 }

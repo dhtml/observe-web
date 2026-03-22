@@ -51,7 +51,7 @@ export default function SettingsPage({ params }: Props) {
     setDeleting(true);
     try {
       await deleteProject(projectId);
-      router.push("/projects");
+      router.push("/");
     } finally {
       setDeleting(false);
     }
@@ -73,10 +73,10 @@ export default function SettingsPage({ params }: Props) {
     );
   }
 
-  if (!project) return <p className="px-8 py-8 text-gray-400">Project not found</p>;
+  if (!project) return <p className="px-4 sm:px-8 py-6 sm:py-8 text-gray-400">Project not found</p>;
 
   return (
-    <div className="px-8 py-8 max-w-2xl space-y-8">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-2xl space-y-8">
       <div>
         <h2 className="text-xl font-bold text-white mb-1">Settings</h2>
         <p className="text-sm text-gray-500">Manage your project configuration</p>
